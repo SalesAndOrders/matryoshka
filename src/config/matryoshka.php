@@ -8,7 +8,7 @@ return [
     'matryoshka_cache_expire' => env('MATRYOSHKA_CACHE_EXPIRE', 604800),
 
     /**
-     * On development set to true to not to cache views
+     * If returns false then views won't be cached
      */
-    'matryoshka_flush_cache' => env('MATRYOSHKA_FLUSH_CACHE', false)
+    'cache_views' => env('MATRYOSHKA_CACHE_VIEWS', true)
 ];
