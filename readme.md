@@ -36,170 +36,66 @@ CACHE_DRIVER=memcached
 
 > Have a look at [Laravel's cache configuration documentation](https://laravel.com/docs/5.2/cache#configuration), if you need any help.
 
+### Step 4: Routes Middleware
+
+For your Laravel app, open `app/Http/Kernel.php` and, within the `$routeMiddleware` array, append:
+
+```
+'matryoshkaCache' => \Laracasts\Matryoshka\Middlewares\MatryoshkaCache::class
+```
+
+### Step 5: Matryoshka config:
+
+You can ovveride packages default config options (expiration time of cahched views, wether or not to cahche views):
+Copy packages config file (config/matryoshka.php) to applicatons app/config/ folder,
+then in your .env file you can set custom values:
+ 
+```
+MATRYOSHKA_CACHE_EXPIRE=604800
+MATRYOSHKA_CACHE_VIEWS=false
+```
+
 ## Usage
 
 ### The Basics
 
-With the package now installed, you may use the provided `@cache` Blade directive anywhere in your views, like so:
+With the package now installed perform these actions:
+
+### Step 1: Attach middleware in `routes/web.php`
+
+This middleware only applies to `GET` methods. To attach middleware to a GET method follow this example:
+
+```
+Route::get('/some-url', 'SomeController@getAllEntities')
+    ->middleware('matryoshkaCache:entities,view/view:view-signature');
+``` 
+
+Breakdown of the params:
+
+`matryoshkaCache:entities` - (before coma) matryoshkaCache - middlewere name, a part that will build name of the cached item
+and will be used in view blade.
+
+`view/view:view-signature` - (after coma)  view/view - view name, view-signature - view variable,
+u can attach multiple view vars if u hane multiple bolck chached, but you will have to make sure view chached names
+properly passed to matryoshka view directive `@cache('cahce-name', $modelOrCahedBlock) . contents here . @endcahche($modelOrCahedBlock) `
+
+### Step 2: Enclose your html in directeve
+, you may use the provided `@cache` Blade directive anywhere in your views, like so:
 
 ```html
-@cache('my-cache-key')
+@cache('cache-name', $model)
     <div>
-        <h1>Hello World</h1>
+        <h1>$model->getTitle()</h1>
     </div>
-@endcache
+@endcache($model)
 ```
 
-By surrounding this block of HTML with the `@cache` and `@endcache` directives, we're asking the package to cache the given HTML. Now this example is trivial, however, you can imagine a more complex view that includes various nested caches, as well as lazy-loaded relationship calls that trigger additional database queries. After the initial page load that caches the HTML fragment, each subsequent refresh will instead pull from the cache. As such, those additional database queries will never be executed.
+**Note:** overhere `$model` variable will be instance of `CacheContent` and if this view exists in cache and will contain cached
+html content. Middleware will then render cached content instead of passing request to controller to query db and build view
+using db data. If $model is instance of laravel model then that means it html is build from laravel controller,
+and once it's built it will cache the contents so next time w get cached view instead quering db.
 
-Please keep in mind that, in production, this will cache the HTML fragment "forever." For local development, on the other hand, we'll automatically flush the relevant cache for you each time you refresh the page. That way, you may update your views and templates however you wish, without needing to worry about clearing the cache manually.
-
-Now because your production server will cache the fragments forever, you'll want to add a step to your deployment process that clears the relevant cache.
-
-```php
-Cache::tags('views')->flush();
-```
-
-### Caching Models
-
-While you're free to hard-code any string for the cache key, the true power of Russian-Doll caching comes into play when we use a timestamp-based approach.
-
-Consider the following fragment:
-
-```html
-@cache($post)
-    <article>
-        <h2>{{ $post->title }}></h2>
-        <p>Written By: {{ $post->author->username }}</p>
-
-        <div class="body">{{ $post->body }}</div>
-    </article>
-@endcache
-```
-
-In this example, we're passing the `$post` object, itself, to the `@cache` directive - rather than a string. The package will then look for a `getCacheKey()` method on the model. We've already done that work for you; just have your Eloquent model use the `Laracasts\Matryoshka\Cacheable` trait, like so:
-
-```php
-use Laracasts\Matryoshka\Cacheable;
-
-class Post extends Eloquent
-{
-    use Cacheable;
-}
-```
-
-Alternatively, you may use this trait on a parent class that each of your Eloquent models extend.
-
-That should do it! Now, the cache key for this fragment will include the object's `id` and `updated_at` timestamp: `App\Post/1-13241235123`.
-
-> The key is that, because we factor the `updated_at` timestamp into the cache key, whenever you update the given post, the cache key will change. This will then, in effect, bust the cache!
-
-#### Touching
-
-In order for this technique to work properly, it's vital that we have some mechanism to alert parent relationships (and subsequently bust parent caches) each time a model is updated. Here's a basic workflow:
-
-1. Model is updated in the database.
-2. Its `updated_at` timestamp is refreshed, triggering a new cache key for the instance.
-3. The model "touches" (or pings) its parent.
-4. The parent's `updated_at` timestamp, too, is updated, which busts its associated cache.
-5. Only the affected fragments re-render. All other cached items remain untouched.
-
-Luckily, Laravel offers this "touch" functionality out of the box. Consider a `Note` object that needs to alert its parent `Card` relationship each time an update occurs.
-
-```php
-<?php
-
-namespace App;
-
-use Laracasts\Matryoshka\Cacheable;
-use Illuminate\Database\Eloquent\Model;
-
-class Note extends Model
-{
-    use Cacheable;
-
-    protected $touches = ['card'];
-
-    public function card()
-    {
-        return $this->belongsTo(Card::class);
-    }
-}
-```
-
-Notice the `$touches = ['card']` portion. This instructs Laravel to ping the `card` relationship's timestamps each time the note is updated.
-
-Now, everything is in place. You might render your view, like so:
-
-**resources/views/cards/_card.blade.php**
-
-```html
-@cache($card)
-    <article class="Card">
-        <h2>{{ $card->title }}</h2>
-
-        <ul>
-            @foreach ($card->notes as $note)
-                @include ('cards/_note')
-            @endforeach
-        </ul>
-    </article>
-@endcache
-```
-
-**resources/views/cards/_note.blade.php**
-
-```html
-@cache($note)
-    <li>{{ $note->body }}</li>
-@endcache
-```
-
-Notice the Russian-Doll style cascading for our caches; that's the key. If any note is updated, its individual cache will clear - along with its parent - but any  siblings will remain untouched.
-
-### Caching Collections
-
-You won't always want to cache model instances; you may wish to cache a Laravel collection as well! No problem.
-
-```html
-@cache($posts)
-    @foreach ($posts as $post)
-        @include ('post')
-    @endforeach
-@endcache
-```
-
-Now, as long as the `$posts` collection contents does not change, that `@foreach` section will never run. Instead, as always, we'll pull from the cache.
-
-Behind the scenes, this package will detect that you've passed a Laravel collection to the `cache` directive, and will subsequently generate a unique cache key for the collection.
-
-## FAQ
-
-**1. Is there any way to override the cache key for a model instance?**
-
-Yes. Let's say you have:
-
-```html
-@cache($post)
-    <div>view here</div>
-@endcache
-```
-
-Behind the scenes, we'll look for a `getCacheKey` method on the model. Now, as mentioned above, you can use the `Laracasts\Matryoshka\Cacheable` trait to instantly import this functionality. Alternatively, you may pass a second argument to the `@cache` directive, like this:
-
-```html
-@cache($post, 'my-custom-key')
-    <div>view here</div>
-@endcache
-```
-
-This instructs the package to use `my-custom-key` for the cache instead. This can be useful for pagination and other related tasks.
-
-**2. Where can I learn more about this approach to caching?**
-
-Give these two articles a read:
-
-- https://signalvnoise.com/posts/3112-how-basecamp-next-got-to-be-so-damn-fast-without-using-much-client-side-ui
-- https://signalvnoise.com/posts/3113-how-key-based-cache-expiration-works
-
-And, if you enjoy Laracasts, [watch the creation of this package from scratch here.](https://laracasts.com/series/russian-doll-caching-in-laravel)
+**Warning**: Cache lives for 7 days by default, cache is not flushed in laravel application,
+this repo was forked from original one and was modified to work only for sando laravel app, be aware that you will have to implement
+cache flush when thing are updated/delted. As of this release cache models and collections may work or may not work, for now it's not
+intended to use these features. 

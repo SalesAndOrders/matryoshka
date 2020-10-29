@@ -14,7 +14,9 @@ class FlushViews
      */
     public function handle($request, $next)
     {
-        Cache::tags('views')->flush();
+        if (!config('matryoshka.cache_views')) {
+            Cache::tags('views')->flush();
+        }
 
         return $next($request);
     }

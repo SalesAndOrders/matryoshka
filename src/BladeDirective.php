@@ -31,25 +31,61 @@ class BladeDirective
     }
 
     /**
+     * Check if view is in cache by key
+     *
+     * @param mixed       $model
+     * @param string|null $key
+     */
+    public function hasView($key)
+    {
+        return $this->cache->has($key);
+    }
+
+    /**
+     * Get Cache Content from the cache
+     *
+     * @param $key
+     * @return CacheContent
+     * @throws Exception
+     */
+    public function getContent($key)
+    {
+        $content = $this->cache->get($key);
+
+        return new CacheContent($key, $content);
+    }
+
+    /**
      * Handle the @cache setup.
      *
      * @param mixed       $model
      * @param string|null $key
      */
-    public function setUp($model, $key = null)
+    public function setUp($key, $cache = null)
     {
+        if (!config('matryoshka.cache_views')) {
+            return false;
+        }
+
         ob_start();
+        $this->keys[] = $key = $this->normalizeKey($key);
 
-        $this->keys[] = $key = $this->normalizeKey($model, $key);
-
-        return $this->cache->has($key);
+        return $cache instanceof CacheContent;
     }
 
     /**
      * Handle the @endcache teardown.
      */
-    public function tearDown()
+    public function tearDown($cache)
     {
+        if (!config('matryoshka.cache_views')) {
+            return '';
+        }
+
+        if ($cache instanceof CacheContent && !empty($cache->getContent())) {
+            ob_get_clean();
+            return $cache->getContent();
+        }
         return $this->cache->put(
             array_pop($this->keys), ob_get_clean()
         );

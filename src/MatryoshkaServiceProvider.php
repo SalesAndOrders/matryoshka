@@ -16,20 +16,19 @@ class MatryoshkaServiceProvider extends ServiceProvider
     public function boot(Kernel $kernel)
     {
         if ($this->app->isLocal()) {
-            $kernel->pushMiddleware('Laracasts\Matryoshka\FlushViews');
+           $kernel->pushMiddleware('Laracasts\Matryoshka\FlushViews');
         }
 
+        $this->publishes([
+            __DIR__ . '/../config/matryoshka.php' => config_path('matryoshka.php'),
+        ], 'config');
+
         Blade::directive('cache', function ($expression) {
-            $version = explode('.', $this->app::VERSION);
-            // Starting with laravel 5.3 the parens are not included in the expression string.
-            if ($version[1] > 2) {
-                return "<?php if (! app('Laracasts\Matryoshka\BladeDirective')->setUp({$expression})) : ?>";
-            }
-            return "<?php if (! app('Laracasts\Matryoshka\BladeDirective')->setUp{$expression}) : ?>";
+            return "<?php if (!app('Laracasts\Matryoshka\BladeDirective')->setUp({$expression})): ?>";
         });
 
-        Blade::directive('endcache', function () {
-            return "<?php endif; echo app('Laracasts\Matryoshka\BladeDirective')->tearDown() ?>";
+        Blade::directive('endcache', function ($expression) {
+            return "<?php endif; echo app('Laracasts\Matryoshka\BladeDirective')->tearDown({$expression}); ?>";
         });
     }
 
@@ -38,7 +37,9 @@ class MatryoshkaServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/matryoshka.php', 'matryoshka'
+        );
         $this->app->singleton(BladeDirective::class);
     }
 }
-

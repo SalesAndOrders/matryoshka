@@ -32,10 +32,9 @@ class RussianCaching
     public function put($key, $fragment)
     {
         $key = $this->normalizeCacheKey($key);
-
         return $this->cache
             ->tags('views')
-            ->rememberForever($key, function () use ($fragment) {
+            ->remember($key, config('matryoshka.cache_expire', 604800), function () use ($fragment) {
                 return $fragment;
             });
     }
@@ -54,6 +53,21 @@ class RussianCaching
             ->has($key);
     }
 
+
+    /**
+     * Get key from the cache.
+     *
+     * @param mixed $key
+     */
+    public function get($key)
+    {
+        $key = $this->normalizeCacheKey($key);
+
+        return $this->cache
+            ->tags('views')
+            ->get($key);
+    }
+
     /**
      * Normalize the cache key.
      *
@@ -68,4 +82,3 @@ class RussianCaching
         return $key;
     }
 }
-
