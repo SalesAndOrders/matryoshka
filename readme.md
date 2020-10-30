@@ -80,7 +80,7 @@ u can attach multiple view vars if u hane multiple bolck chached, but you will h
 properly passed to matryoshka view directive `@cache('cahce-name', $modelOrCahedBlock) . contents here . @endcahche($modelOrCahedBlock) `
 
 ### Step 2: Enclose your html in directeve
-, you may use the provided `@cache` Blade directive anywhere in your views, like so:
+You may use the provided `@cache` Blade directive anywhere in your views, like so:
 
 ```html
 @cache('cache-name', $model)

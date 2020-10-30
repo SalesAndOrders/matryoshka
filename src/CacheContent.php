@@ -73,8 +73,15 @@ class CacheContent
      * @param string $preffix
      * @return string
      */
-    public static function buildViewNameForEntity($model, $suffix, $preffix)
+    public static function buildViewNameForEntity($model, $suffix, $preffix, $identifierAppend = null)
     {
-        return $model instanceof CacheContent ? $model->getName() : $suffix . '-' . $model->id . '-' . $preffix;
+        if ($model instanceof CacheContent) {
+            return $model->getName();
+        }
+
+        if (!empty($identifierAppend)) {
+            return $suffix . '-' . $model->id . '-' . $identifierAppend . '-' . $preffix;
+        }
+        return $suffix . '-' . $model->id . '-' . $preffix;
     }
 }

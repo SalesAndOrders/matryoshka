@@ -76,7 +76,7 @@ class BladeDirective
     /**
      * Handle the @endcache teardown.
      */
-    public function tearDown($cache)
+    public function tearDown($cache, $tags = [])
     {
         if (!config('matryoshka.cache_views')) {
             return '';
@@ -87,7 +87,7 @@ class BladeDirective
             return $cache->getContent();
         }
         return $this->cache->put(
-            array_pop($this->keys), ob_get_clean()
+            array_pop($this->keys), ob_get_clean(), $tags
         );
     }
 

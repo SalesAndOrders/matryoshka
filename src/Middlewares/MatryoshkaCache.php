@@ -74,11 +74,31 @@ class MatryoshkaCache
      */
     public function buildNameFromArgumentItem($argument, $signature, $request)
     {
-        $argArray = explode(':', $argument, 2);
-        if (count($argArray) == 2) {
-            return $argArray[0] . '-' . $request->route($argArray[1]) . '-' . $signature;
+        $argArray = explode(':', $argument);
+        if (count($argArray) > 1) {
+            $firstPart = $this->prebuildFirstPartFromArgs($argArray, $request);
+            return $firstPart . '-' . $signature;
         }
         return $argArray[0] . '-' . $signature;
+    }
+
+    /**
+     * @param $arguments
+     * @param $request
+     */
+    public function prebuildFirstPartFromArgs($arguments, $request)
+    {
+        $firstPart = $arguments[0] . '-' . $request->route($arguments[1]);
+        foreach ($arguments as $key => $argument) {
+            if ($key < 2) {
+                continue;
+            }
+            $value = $request->route($argument) ? $request->route($argument) : $request->input($argument);
+            if (!empty($value)) {
+                $firstPart .= '-' . $value;
+            }
+        }
+        return $firstPart;
     }
 
     /**

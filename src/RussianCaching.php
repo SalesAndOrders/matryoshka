@@ -29,11 +29,12 @@ class RussianCaching
      * @param mixed  $key
      * @param string $fragment
      */
-    public function put($key, $fragment)
+    public function put($key, $fragment, $tags = [])
     {
+        array_unshift($tags, 'views');
         $key = $this->normalizeCacheKey($key);
         return $this->cache
-            ->tags('views')
+            ->tags($tags)
             ->remember($key, config('matryoshka.cache_expire', 604800), function () use ($fragment) {
                 return $fragment;
             });
